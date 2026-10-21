@@ -13,7 +13,7 @@ export interface Product {
   features: string;
   inTheBox: BoxItem[];
   gallery: string[];
-  isNew: boolean;
+  isNewArrival: boolean;
   createdAt: string;
 }
 
@@ -34,7 +34,7 @@ export interface CartTotals {
   subtotal: number;
   shipping: number;
   vat: number;
-  grandtotal: number;
+  grandTotal: number;
 }
 
 // ----- Users -----
@@ -60,10 +60,8 @@ export interface CustomerInfo {
   zipCode: string;
   city: string;
   country: string;
-  paymentMethod: "e-money" | "Cash on Delivery";
-  eMoneyNumber?: string;
-  eMoneyPIN?: string;
-}
+  paymentMethod: "e-Money" | "Cash on Delivery";
+  eMoneyNumber?: string;}
 
 // An item inside a placed order
 export interface OrderItem {
@@ -96,10 +94,8 @@ export interface CheckoutFormData {
   zipCode: string;
   city: string;
   country: string;
-  paymentMethod: "e-Money" | "Cash on delivery";
-  eMoneyNumber: string;
-  eMoneyPIN: string;
-}
+  paymentMethod: "e-Money" | "Cash on Delivery";
+  eMoneyNumber: string;}
 
 // Form validation errors - same keys as the force, but values are error strings
 export type FormErrors = Partial<Record<keyof CheckoutFormData, string>>;
@@ -109,7 +105,7 @@ export interface DashboardStats {
   totalOrders: number;
   totalUsers: number;
   totalRevenue: number;
-  pendingOders: number;
+  pendingOrders: number;
   recentOrders: Order[];
   monthlyRevenue: {
     _id: { year: number; month: number };

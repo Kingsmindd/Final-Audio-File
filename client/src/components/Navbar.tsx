@@ -1,161 +1,153 @@
-import React, { useState } from "react";
-import { GiHamburgerMenu } from "react-icons/gi";
-import { Link } from "react-router-dom";
-import { LuShoppingCart } from "react-icons/lu";
-import { IoClose } from "react-icons/io5";
-import { FaChevronRight } from "react-icons/fa";
-
-const navLogo =
-  "https://res.cloudinary.com/dkvooc6af/image/upload/v1780493019/Frame_3_vcnrmh.png";
-
-const headphoneMobileDropDown =
-  "https://res.cloudinary.com/dkvooc6af/image/upload/v1780497345/headset_vwto3d.png";
-
-const speakermobileDropDown =
-  "https://res.cloudinary.com/dkvooc6af/image/upload/v1780497473/dropdown_speaker_mro4ii.png";
-
-const earphonemobileDropDown =
-  "https://res.cloudinary.com/dkvooc6af/image/upload/v1780497552/Group_5_hghnwo.png";
-
-const Navbar: React.FC = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-
-  const navLinks = [
-    { to: "/", label: "HOME" },
-    { to: "/headphones", label: "HEADPHONES" },
-    { to: "/speakers", label: "SPEAKERS" },
-    { to: "/earphones", label: "EARPHONES" },
-  ];
-
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiArrowUpRight,
+  FiMenu,
+  FiShoppingBag,
+  FiUser,
+  FiX,
+} from "react-icons/fi";
+import { useStore } from "../context/StoreContext";
+import { useAuth } from "../context/AuthContext";
+const links = [
+  { to: "/", label: "Home" },
+  { to: "/headphones", label: "Headphones" },
+  { to: "/speakers", label: "Speakers" },
+  { to: "/earphones", label: "Earphones" },
+];
+export default function Navbar() {
+  const { cart, setIsCartOpen } = useStore();
+  const { user, logout } = useAuth();
+  const [menu, setMenu] = useState(false);
+  const [account, setAccount] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    setMenu(false);
+    setAccount(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setAccount(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenu(false);
+        setAccount(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, []);
+  const count = cart.reduce((sum, item) => sum + item.quantity, 0);
   return (
-    <nav className="bg-[#101010]">
-      <div className="pt-4 md:pt-6.25 w-full px-6 md:px-10 lg:px-12 xl:px-[5.5%]">
-        <div className="flex items-center justify-between pb-8 pt-3 md:pt-0 md:p-6.25">
-          <button
-            className="lg:hidden text-white text-2xl shrink-0"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <IoClose /> : <GiHamburgerMenu />}
-          </button>
-
-          <Link to="/">
-            <img src={navLogo} alt="logo" />
-          </Link>
-
-          <div className="hidden lg:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-[16px] font-bold text-white tracking-2px hover:text-[#D87D4A] transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-6 shrink-0">
-            <button className="relative text-white hover:text-[#D87D4A] transition-colors flex items-center gap-2">
-              <LuShoppingCart className="text-[22px]" />
-              <span className="text-[16px] font-bold text-white tracking-[1px] hover:text-[#D87D4A] transition-colors uppercase hidden md:inline-block">
-                CART
-              </span>
-            </button>
-
-            <div className="hidden lg:flex items-center gap-4">
-              <Link
-                to="/login"
-                className="text-[16px] font-bold text-white tracking-[1px] hover:text-[#D87D4A] transition-colors uppercase lg:py-2.5 lg:px-5 border border-[#FFFFFF]"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="text-[16px] font-bold text-white tracking-[1px] hover:text-[#FBAF85] transition-colors uppercase lg:py-2.5 lg:px-5 bg-[#D87D4A]"
-              >
-                Sign up
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* MOBILE DROPDOWN */}
-        {isMenuOpen && (
-          <div
-            className=" py-8 px-0 absolute top-22 left-0 right-0 bg-white rounded-b-xl shadow-2xl z-50 animate-[slideDown_0.3s_ease-out]" // ✅ Fix 2: added "flex gap-4 px-4", removed broken animate class
-          >
-            <div className="px-6 md:px-10 lg:px-12 xl:px-[5.5%]">
-              <div className="flex flex-col md:flex-row gap-14 pt-10">
-                {[
-                  {
-                    to: "/headphones",
-                    label: "HEADPHONES",
-                    img: headphoneMobileDropDown,
-                  },
-                  {
-                    to: "/speakers",
-                    label: "SPEAKERS",
-                    img: speakermobileDropDown,
-                  },
-                  {
-                    to: "/earphones",
-                    label: "EARPHONES",
-                    img: earphonemobileDropDown,
-                  },
-                ].map((cat) => (
-                  <Link
-                    key={cat.to}
-                    to={cat.to}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex-1 bg-[#F1F1F1] rounded-lg relative h-41.25 pt-22.5 pb-5 group"
-                  >
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex justify-center">
-                      <img src={cat.img} alt={cat.label} />
-                    </div>
-
-                    <div className="flex flex-col items-center gap-2">
-                      <h4 className="text-[15px] font-bold tracking-[1px] text-black">
-                        {cat.label}
-                      </h4>
-
-                      <div className="flex flex-col items-center gap-2">
-                        <span className="text-xs font-bold text-black/50 group-hover:text-[#DB7D4A] uppercase">
-                          Shop
-                        </span>
-                        <FaChevronRight className="text-black/50 group-hover:text-[#DB7D4A]" />{" "}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <div className="flex gap-4">
-                  <Link
-                    to="/login"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex-1 text-center py-3 border-2 border-black font-bold text-[13px] uppercase tracking-[1px]"
-                  >
-                    Log in
-                  </Link>
-                  <Link
-                    to="/register"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                    }}
-                    className="flex-1 text-center py-3 border-2 border-black font-bold text-[13px] uppercase tracking-[1px]"
-                  >
-                    Sign Up
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+    <header className="site-header">
+      <div className="announcement">
+        A little closer to the music.{" "}
+        <span>
+          Discover your next favourite sound <FiArrowUpRight />
+        </span>
       </div>
-    </nav>
+      <nav className="shell nav-inner" aria-label="Main navigation">
+        <button
+          className="icon-button menu-toggle"
+          aria-label={menu ? "Close menu" : "Open menu"}
+          aria-expanded={menu}
+          aria-controls="mobile-navigation"
+          onClick={() => setMenu(!menu)}
+        >
+          {menu ? <FiX /> : <FiMenu />}
+        </button>
+        <Link to="/" className="wordmark" aria-label="Audiophile home">
+          audiophile<span>.</span>
+        </Link>
+        <div className="desktop-links">
+          {links.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to === "/"}>
+              {l.label}
+            </NavLink>
+          ))}
+        </div>
+        <div className="nav-actions">
+          <div ref={ref} className="account-wrap">
+            <button
+              className="icon-button"
+              aria-label="Account menu"
+              aria-expanded={account}
+              aria-controls="account-menu"
+              onClick={() => setAccount(!account)}
+            >
+              {user ? (
+                <span className="avatar-initial">{user.name.charAt(0)}</span>
+              ) : (
+                <FiUser />
+              )}
+            </button>
+            {account && (
+              <div className="account-menu" id="account-menu">
+                {user ? (
+                  <>
+                    <strong>{user.name}</strong>
+                    <small>{user.email}</small>
+                    {user.isAdmin && (
+                      <Link to="/admin">
+                        Admin dashboard <FiArrowUpRight />
+                      </Link>
+                    )}
+                    <Link to="/profile">My profile</Link>
+                    <Link to="/orders">My orders</Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setAccount(false);
+                        navigate("/");
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <strong>Your listening journey</strong>
+                    <Link to="/login">
+                      Sign in <FiArrowUpRight />
+                    </Link>
+                    <Link to="/register">Create an account</Link>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <span className="nav-divider" />
+          <button
+            className="icon-button bag-button"
+            aria-label={"Open shopping bag, " + count + " items"}
+            onClick={() => {
+              setAccount(false);
+              setIsCartOpen(true);
+            }}
+          >
+            <FiShoppingBag />
+            {count > 0 && <span className="bag-count">{count}</span>}
+          </button>
+        </div>
+      </nav>
+      {menu && (
+        <div id="mobile-navigation" className="mobile-links shell">
+          {links.map((l) => (
+            <NavLink key={l.to} to={l.to} end={l.to === "/"}>
+              {l.label}
+              <FiArrowUpRight />
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </header>
   );
-};
-
-export default Navbar;
+}

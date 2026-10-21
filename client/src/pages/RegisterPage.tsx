@@ -1,7 +1,2 @@
-import React from "react";
-
-const RegisterPage: React.FC = () => {
-  return <div></div>;
-};
-
-export default RegisterPage;
+import AuthScreen from "../components/AuthScreen";
+export default function RegisterPage(){return <AuthScreen registering/>;}

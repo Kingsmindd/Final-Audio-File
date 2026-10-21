@@ -16,6 +16,7 @@ import User from "../models/User";
 import jwt from "jsonwebtoken";
 import { AuthRequest } from "../types/indexServer";
 import { deleteImage, uploadImage } from "../config/cloudinary";
+import mongoose from "mongoose";
 
 // Helper:generate a JWT token for a user
 // JWT = JSON web token - a signed string that proves who the user is
@@ -29,7 +30,26 @@ const generateToken = (id: string): string => {
 // Creates a new user account
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password } = req.body ?? {};
+
+    if (
+      typeof name !== "string" ||
+      typeof email !== "string" ||
+      typeof password !== "string"
+    ) {
+      res.status(400).json({
+        message: "Name, email, and password must be text",
+      });
+      return;
+    }
+
+    if (!name.trim() || !email.trim() || password.length < 8) {
+      res.status(400).json({
+        message:
+          "Name and email are required, and password must be at least 8 characters",
+      });
+      return;
+    }
     //Basic validation = check all required fields are present
     if (!name || !email || !password) {
       res
@@ -75,7 +95,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 // Authenticates a user and returns a token
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
+
+    if (typeof email !== "string" || typeof password !== "string") {
+      res.status(400).json({
+        message: "Email and password must be text",
+      });
+      return;
+    }
     if (!email || !password) {
       res.status(400).json({ message: "Please provide email and password" });
       return;
@@ -240,7 +267,7 @@ export const getAllUsers = async (
   try {
     // Fetch all users, excluding their passwords
     const users = await User.find({})
-      .select("password")
+      .select("-password")
       .sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
@@ -257,6 +284,17 @@ export const updateUserRole = async (
   res: Response,
 ): Promise<void> => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id as string)) {
+      res.status(400).json({ message: "Invalid user ID" });
+      return;
+    }
+
+    if (typeof req.body?.isAdmin !== "boolean") {
+      res.status(400).json({
+        message: "isAdmin must be true or false",
+      });
+      return;
+    }
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -264,7 +302,7 @@ export const updateUserRole = async (
       return;
     }
 
-    user.isAdmin = req.body.isAdmin ?? user.isAdmin;
+    user.isAdmin = req.body.isAdmin;
     const updatedUser = await user.save();
 
     res.json({
@@ -287,30 +325,40 @@ export const deleteUser = async (
   res: Response,
 ): Promise<void> => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id as string)) {
+      res.status(400).json({ message: "Invalid user ID" });
+      return;
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      res.status(404).json({
-        message: "User not Found",
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    // Prevent admins from deleting themselves
+    if (user._id.toString() === req.user!._id.toString()) {
+      res.status(400).json({
+        message: "You cannot delete your own account",
       });
       return;
     }
 
-    // prevent admins from deleting themselves
-
-    if (user._id.toString() === req.user!._id.toString()) {
-      res.status(400).json({ message: "You cannot delete your own account" });
-      return;
-    }
-    // cleanup cloudinary avatar if it exists
-
+    // Remove the user's avatar from Cloudinary
     if (user.avatarPublicId) {
       await deleteImage(user.avatarPublicId);
     }
 
-    await user.deleteOne;
-    res.status(204).json({ message: "User deleted successfully" });
+    await user.deleteOne();
+
+    res.status(200).json({
+      message: "User deleted successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error deleting user", error });
+    console.error("Delete user error:", error);
+    res.status(500).json({
+      message: "Server error deleting user",
+    });
   }
 };

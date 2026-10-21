@@ -32,6 +32,20 @@ export const errorHandler = (
   let statusCode = err.statusCode || 500;
   let message = err.message || "Sever Error";
 
+  if (err.name === "MulterError") {
+    statusCode = 400;
+    message = "Invalid file upload";
+
+    if (err.code === "LIMIT_FILE_SIZE") {
+      statusCode = 413;
+      message = "Image must be 5 MB or smaller";
+    }
+
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      message = "Unexpected file field or too many files";
+    }
+  }
+
   //    ---- Handle specific Mongoose errors -----
 
   // CastError: When mongDB gets an invalid ID format (not a valid ObjectID)
@@ -43,7 +57,7 @@ export const errorHandler = (
   }
   //Duplicate key error: e.g trying to register with an email already used
 
-  if (err.code === 1100) {
+  if (err.code === 11000) {
     //Extract the field name the error (e.g "email")
     const field = Object.keys(err.keyValue || {})[0];
     message = `Duplicate value: ${field} already exists`;

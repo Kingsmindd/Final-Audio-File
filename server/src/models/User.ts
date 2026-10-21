@@ -37,6 +37,19 @@ const userSchema = new Schema<IUser>(
       default: false, //New users are Not admins by default
     },
 
+    // Account-owned bag data stays out of normal profile/admin responses.
+    savedCart: {
+      type: [{
+        _id: false,
+        productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+        quantity: { type: Number, required: true, min: 1, max: 999, validate: Number.isInteger },
+      }],
+      default: [],
+      select: false,
+    },
+    cartRevision: { type: Number, default: 0, select: false },
+    cartInitialized: { type: Boolean, default: false, select: false },
+
     //Optional profile avatar stored as a Cloudnairy URL
     avatar: {
       type: String,

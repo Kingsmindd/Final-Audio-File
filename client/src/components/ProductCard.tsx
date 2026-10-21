@@ -1,7 +1,4 @@
-import React from "react";
-
-const ProductCard: React.FC = () => {
-  return <div></div>;
-};
-
-export default ProductCard;
+import { Link } from "react-router-dom";
+import { FiArrowRight } from "react-icons/fi";
+import type { Product } from "../types";
+export default function ProductCard({product,reversed=false}:{product:Product;reversed?:boolean}){return <article className={"catalog-product "+(reversed?"catalog-reversed":"")}><Link to={"/product/"+product._id} className="catalog-image"><img src={product.image.trim()} alt={product.name} loading="lazy"/></Link><div className="catalog-copy"><span className="eyebrow copper-text">{product.isNewArrival?"New to the collection":product.category}</span><h2>{product.name}</h2><p>{product.description}</p><strong className="product-price">₦ {product.price.toLocaleString()}</strong><Link to={"/product/"+product._id} className="button button-copper">Discover product <FiArrowRight/></Link></div></article>;}

@@ -35,7 +35,7 @@ router.get("/stats", getDashboardstats);
 router.get("/users", getAllUsers);
 
 // PUT /api/admin/users/:id -- update user (toggle admin)
-router.put("/users/:id", updateUserRole);
+router.patch("/users/:id", updateUserRole);
 
 // DELETE /api/admin/users/:id -- delete user
 router.delete("/users/:id", deleteUser);
@@ -53,7 +53,7 @@ router.post(
 );
 
 //PUT /api/admin/products/:id -> edit a product
-router.put("/products/:id", updateProduct);
+router.patch("/products/:id", updateProduct);
 
 //DELETE /api/admin/products/:id -> remove a product
 router.delete("/products/:id", deleteProduct);
@@ -63,6 +63,6 @@ router.delete("/products/:id", deleteProduct);
 router.get("/orders", getAllOrders);
 
 //PUT  /api/admin/orders/:id/status -> update status
-router.put("/orders/:id/status", updateOrderStatus);
+router.patch("/orders/:id/status", updateOrderStatus);
 
 export default router;

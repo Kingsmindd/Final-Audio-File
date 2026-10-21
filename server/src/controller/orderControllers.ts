@@ -6,112 +6,53 @@
 //- updateOrderStatus (admin only)
 //- getDashboardstats (admin only)
 
-import { Request, Response } from "express";
+import { Response } from "express";
 import mongoose from "mongoose";
 import { AuthRequest } from "../types/indexServer";
 import Order from "../models/Order";
+import Product from "../models/Product";
+import { validateCheckout } from "../validation/checkout";
 
 //--- CREATE ORDER ----
 // POST /api/orders
 // Anyone (logged in or guest) can place an order
 
-export const createOrder = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const createOrder = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { customerInfo, cartItems, orderSummary } = req.body;
-
-    //validate required data is present
-
-    if (!customerInfo || !cartItems || !orderSummary) {
-      res.status(400).json({
-        message:
-          "Missing required fields: customerInfo, cartItems, or orderSummary",
-      });
-      return;
+    const input = validateCheckout(req.body);
+    if (!input.ok) { res.status(400).json({message:input.message}); return; }
+    const {customerInfo,cartItems}=input;
+    const products=await Product.find({_id:{$in:cartItems.map(item=>item._id)}});
+    const byId=new Map(products.map(product=>[product._id.toString(),product]));
+    if (cartItems.some(item=>!byId.has(item._id))) {
+      res.status(400).json({message:"One or more products are no longer available"});return;
     }
-    //validate cart is not empty
-
-    if (!Array.isArray(cartItems) || cartItems.length === 0) {
-      res.status(400).json({ message: "Cart must have at least one item" });
-      return;
+    const subtotal=cartItems.reduce((sum,item)=>sum+byId.get(item._id)!.price*item.quantity,0);
+    const shipping=50;
+    const vat=Math.round(subtotal*0.075);
+    const grandTotal=subtotal+shipping+vat;
+    if (!Number.isFinite(grandTotal) || grandTotal < 0 || grandTotal > Number.MAX_SAFE_INTEGER) {
+      res.status(400).json({message:"The order amount is outside the supported range"});return;
     }
-
-    //validate each cart items has the required fields
-
-    for (const item of cartItems) {
-      if (
-        !item._id ||
-        !item.name ||
-        item.price === undefined ||
-        item.quantity
-      ) {
-        res
-          .status(400)
-          .json({ message: "Invalid cart item - missing required fields" });
-      }
-    }
-
-    // Build the order document
-    const orderData: any = {
-      customerInfo: {
-        name: customerInfo.name,
-        email: customerInfo.email,
-        phone: customerInfo.phone,
-        address: customerInfo.address,
-        zipCode: customerInfo.zipCode,
-        city: customerInfo.city,
-        country: customerInfo.country,
-        paymentMethod: customerInfo.paymentMethod,
-        eMoneyNumber: customerInfo.eMoneyNumber,
-        eMoneyPIN: customerInfo.eMoneyPIN,
-      },
-      cartItems: cartItems.map((item: any) => ({
-        //Create a valid ObjectId for the productId
-        productId: mongoose.Types.ObjectId.isValid(item._id)
-          ? new mongoose.Types.ObjectId(item._id)
-          : new mongoose.Types.ObjectId(),
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      })),
-
-      orderSummary: {
-        subtotal: orderSummary.subtotal,
-        shipping: orderSummary.shipping,
-        vat: orderSummary.vat,
-        grandTotal: orderSummary.grandTotal,
-      },
-    };
-
-    //if the request came from a logged-in user attach their ID to the order
-    // this let users veiw their order history later
-
-    const authReq = req as AuthRequest;
-    if (authReq.user) {
-      orderData.userId = authReq.user._id;
-    }
-
-    const order = new Order(orderData);
-    const createOrder = await order.save();
-
-    res.status(201).json(createOrder);
-  } catch (error: any) {
-    console.error("Create order error", error);
-
-    //Handle mongodb duplicate key error (rare but possible for orderId)
-
-    if (error.code === 11000) {
-      res.status(500).json({ message: "Order ID conflict - please try again" });
-      return;
-    }
-
-    res.status(500).json({
-      message: "Server error creating order",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    const order=await Order.create({
+      customerInfo,
+      cartItems:cartItems.map(item=>{
+        const product=byId.get(item._id)!;
+        return {productId:product._id,name:product.name,price:product.price,quantity:item.quantity,image:product.image.trim()};
+      }),
+      orderSummary:{subtotal,shipping,vat,grandTotal},
+      ...(req.user?{userId:req.user._id}:{}),
     });
+    res.status(201).json(order);
+  } catch (error: unknown) {
+    if (error instanceof mongoose.Error.ValidationError || error instanceof mongoose.Error.CastError) {
+      res.status(400).json({message:"Please check the order details and try again"});return;
+    }
+    console.error("Create order failed:",error);
+    if ((error as {code?:number})?.code === 11000) {
+      res.status(409).json({message:"Order reference conflict. Please try again"});return;
+    }
+    res.status(500).json({message:"Server error creating order"});
   }
 };
 
@@ -189,7 +130,11 @@ export const updateOrderStatus = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { status } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(req.params.id as string)) {
+      res.status(400).json({ message: "Invalid order ID" });
+      return;
+    }
+    const status = req.body?.status;
 
     //Validate the status
 
@@ -217,7 +162,7 @@ export const updateOrderStatus = async (
 
     const updatedOrder = await order.save();
 
-    res.status(204).json(updatedOrder);
+    res.status(200).json(updatedOrder);
   } catch (error) {
     res.status(500).json({ message: "Server arror updating status" });
   }
@@ -249,13 +194,18 @@ export const getDashboardstats = async (
       // Mongodb aggregration: sum up all grandtotals values
       Order.aggregate([
         {
+          $match: {
+            status: { $ne: "cancelled" },
+          },
+        },
+        {
           $group: {
             _id: null,
-            total: { $sum: "$orderSummary.grandTotal" }, // Sum the grandTotal field
+            total: { $sum: "$orderSummary.grandTotal" },
           },
         },
       ]),
-      Order.countDocuments({ status: "Pending" } as any),
+      Order.countDocuments({ status: "pending" }),
       Order.find({}).sort({ createdAt: -1 }).limit(5),
     ]);
 
@@ -266,7 +216,10 @@ export const getDashboardstats = async (
     const monthlyRevenue = await Order.aggregate([
       {
         //only include orders for the past 6 months
-        $match: { createdAt: { $gte: sixMonthsago } },
+        $match: {
+          createdAt: { $gte: sixMonthsago },
+          status: { $ne: "cancelled" },
+        },
       },
 
       {
@@ -275,7 +228,7 @@ export const getDashboardstats = async (
         $group: {
           _id: {
             year: { $year: "$createdAt" },
-            month: { $month: "$created" },
+            month: { $month: "$createdAt" },
           },
           revenue: { $sum: "$orderSummary.grandTotal" },
           count: { $sum: 1 }, //count of orders that month

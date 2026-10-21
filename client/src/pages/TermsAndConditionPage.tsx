@@ -1,7 +1,11 @@
-import React from "react";
-
-const TermsAndConditionPage: React.FC = () => {
-  return <div></div>;
-};
-
-export default TermsAndConditionPage;
+import { Link } from "react-router-dom";
+import { FiArrowLeft, FiArrowRight, FiInfo } from "react-icons/fi";
+const sections = [
+  {id:"demo",title:"About this portfolio demo",text:"Audiophile is a full-stack development portfolio project. It demonstrates browsing products, account access, saved shopping bags, checkout, and order management. It is not a live retail store. Products, prices, and order statuses are demonstration data."},
+  {id:"orders",title:"Test orders and payments",text:"Placing an order creates a test record in the project database. No payment is collected, no purchase is charged, and no shipment or delivery is arranged. The cash-on-delivery option is part of the checkout demonstration. Do not enter card details, payment PINs, or other financial credentials."},
+  {id:"accounts",title:"Accounts and saved bags",text:"Use a test email and a password you do not use elsewhere. Signed-in bags are saved to the account and can be restored on another device after signing in. Signing out hides that account’s bag without deleting it. Guests use a separate bag saved in their browser. Clearing browser storage removes guest data and local cached data."},
+  {id:"data",title:"Information used by the demo",text:"Account details, test checkout details, saved bags, and orders are sent to the backend and stored in MongoDB. Uploaded images use Cloudinary. The browser stores the login session and cached bag data locally. Project administrators can view test users and orders. Use fictional contact and delivery details; do not submit sensitive personal information."},
+  {id:"catalog",title:"Catalog and availability",text:"Images and descriptions illustrate the project’s shopping experience. Demo records may be edited, removed, or reset as development continues. An item in a bag is not a stock reservation. Final test-order prices and totals are calculated by the backend using the current catalog."},
+  {id:"use",title:"Using the project",text:"Use the demo to explore its features. Avoid submitting someone else’s information, uploading material you do not have permission to use, or intentionally disrupting other visitors’ sessions. These pages describe the current demonstration; they are not commercial sales or delivery terms."},
+];
+export default function TermsAndConditionPage(){return <div className="terms-page"><div className="shell"><Link to="/" className="back-link"><FiArrowLeft/> Back to the store</Link><header className="terms-header"><span className="eyebrow copper-text">Before you explore</span><h1>Terms & demo information.</h1><p>A clear guide to what this project does, what it stores, and how to try it.</p><span className="terms-updated">Updated 21 October 2026</span></header><div className="demo-notice"><FiInfo aria-hidden="true"/><p><strong>This is a portfolio demonstration.</strong> Orders are test records. No money is collected and no products are delivered.</p></div><div className="terms-layout"><nav aria-label="On this page"><span className="eyebrow">On this page</span>{sections.map((section,i)=><a key={section.id} href={"#"+section.id}><span>0{i+1}</span>{section.title}</a>)}</nav><article>{sections.map((section,i)=><section key={section.id} id={section.id}><span className="eyebrow copper-text">0{i+1}</span><h2>{section.title}</h2><p>{section.text}</p></section>)}<Link to="/headphones" className="button button-dark">Explore the collection <FiArrowRight/></Link></article></div></div></div>;}

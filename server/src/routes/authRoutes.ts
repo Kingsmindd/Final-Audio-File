@@ -23,10 +23,10 @@ router.post("/register", register);
 router.post("/login", login);
 // protected routes -- must send a valid JWT token in the authorization header
 //GET /api/auth/profile - view your own profile
-router.get("profile", protect, getProfile);
+router.get("/profile", protect, getProfile);
 
 //PUT /api/auth/profile -- update name, phone address or password
-router.put("/profile", protect, updateProfile);
+router.patch("/profile", protect, updateProfile);
 
 // POST api/auth/avatar -- upload a new profile picture
 router.post("/avatar", protect, upload.single("avatar"), updateAvatar); // "upload.single("avatar") means Multer will look for a field named "avatar"

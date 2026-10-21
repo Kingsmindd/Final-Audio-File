@@ -31,7 +31,7 @@ export const protect = async (
     try {
       // extract the token : "Bearer TOKEN" -> "TOKEN"
 
-      token = req.headers.authorization.split("")[1];
+      token = req.headers.authorization.split(" ")[1];
       // verify the token using our secret key
       // jwt.verify throws an error if the token is expired or invalid
       const decoded = Jwt.verify(
@@ -80,4 +80,17 @@ export const admin = (
   } else {
     res.status(403).json({ message: "Not authorised as admin" });
   }
+};
+
+export const optionalProtect = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): void => {
+  if (req.headers.authorization !== undefined) {
+    void protect(req, res, next);
+    return;
+  }
+
+  next();
 };

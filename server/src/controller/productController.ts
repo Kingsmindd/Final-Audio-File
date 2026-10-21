@@ -7,7 +7,7 @@
 // -Delete product (admin)
 // Upload product (admin)
 
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import Product from "../models/Product";
 import { AuthRequest } from "../types/indexServer";
@@ -47,7 +47,7 @@ export const getProductById = async (
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      res.status(400).json({ message: "Product not found" });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
     res.status(200).json(product);
@@ -85,6 +85,7 @@ export const getProductsByCategory = async (
 export const createProduct = async (
   req: AuthRequest,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const {
@@ -96,30 +97,53 @@ export const createProduct = async (
       features,
       inTheBox,
       gallery,
-      isNew,
+      isNewArrival,
     } = req.body;
 
     // Validate required fields
-    if (!name || !category || !price || !description) {
+    if (
+      !name ||
+      !category ||
+      price === undefined ||
+      price === null ||
+      price === "" ||
+      !description
+    ) {
       res.status(400).json({ message: "please provide all required fields " });
+      return;
+    }
+
+    const numericPrice = Number(price);
+
+    if (
+      (typeof price !== "number" && typeof price !== "string") ||
+      (typeof price === "string" && price.trim() === "")
+    ) {
+      res.status(400).json({ message: "Please provide a valid price" });
+      return;
+    }
+
+    if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+      res.status(400).json({
+        message: "Price must be a valid nonnegative number",
+      });
       return;
     }
 
     const product = await Product.create({
       name,
       category,
-      price: Number(price),
+      price: numericPrice,
       image,
       description,
       features,
       inTheBox: inTheBox || [],
       gallery: gallery || [],
-      isNew: isNew || false,
+      isNewArrival: isNewArrival ?? false,
     });
     res.status(201).json(product);
   } catch (error) {
-    console.log("Create product error page");
-    res.status(500).json({ message: "Server error creating product" });
+    next(error);
   }
 };
 
@@ -129,6 +153,7 @@ export const createProduct = async (
 export const updateProduct = async (
   req: AuthRequest,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id as string)) {
@@ -144,14 +169,34 @@ export const updateProduct = async (
 
     //Update provided fields using the nullish coalescing operator (??)
     product.name = req.body.name ?? product.name;
-    product.category = req.body.name ?? product.name;
-    product.price =
-      req.body.price !== undefined ? Number(req.body.price) : product.price;
+    product.category = req.body.category ?? product.category;
+    if (req.body.price !== undefined) {
+      const price = req.body.price;
+
+      if (
+        (typeof price !== "number" && typeof price !== "string") ||
+        (typeof price === "string" && price.trim() === "")
+      ) {
+        res.status(400).json({ message: "Please provide a valid price" });
+        return;
+      }
+
+      const numericPrice = Number(price);
+
+      if (!Number.isFinite(numericPrice) || numericPrice < 0) {
+        res.status(400).json({
+          message: "Price must be a valid nonnegative number",
+        });
+        return;
+      }
+
+      product.price = numericPrice;
+    }
     product.description = req.body.description ?? product.description;
     product.features = req.body.features ?? product.features;
     product.inTheBox = req.body.inTheBox ?? product.inTheBox;
-    product.isNew =
-      req.body.isNew !== undefined ? req.body.isNew : product.isNew;
+    product.gallery = req.body.gallery ?? product.gallery;
+    product.isNewArrival = req.body.isNewArrival ?? product.isNewArrival;
 
     // Only update image URL if a new one is provided
 
@@ -162,7 +207,7 @@ export const updateProduct = async (
     const updateProduct = await product.save();
     res.json(updateProduct);
   } catch (error) {
-    res.status(500).json({ message: "Server error updating product" });
+    next(error);
   }
 };
 
@@ -186,7 +231,7 @@ export const deleteProduct = async (
     }
 
     await product.deleteOne();
-    res.status(204).json({ message: "Product deleted successfully " });
+    res.status(200).json({ message: "Product deleted successfully " });
   } catch (error) {
     res.status(500).json({ message: "Server error deleting product" });
   }

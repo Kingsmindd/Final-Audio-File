@@ -15,6 +15,9 @@ export interface IUser extends Document {
   address?: string; // Optional default delivery address
   createdAt: Date;
   updatedAt: Date;
+  savedCart: { productId: Types.ObjectId; quantity: number }[];
+  cartRevision: number;
+  cartInitialized: boolean;
   matchPassword(enteredPassword: string): Promise<boolean>; // Method to compare a plain-text password against the hashed stored password
 }
 
@@ -60,13 +63,12 @@ export interface ICustomerInfo {
   name: string;
   email: string;
   phone: string;
-  addess: string;
+  address: string;
   zipCode: string;
   city: string;
   country: string;
   paymentMethod: "e-Money" | "Cash on Delivery";
   eMoneyNumber?: string;
-  eMoneyPIN?: string;
 }
 
 // One item in an order (snapshot of product at time of purchase )

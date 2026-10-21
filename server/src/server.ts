@@ -1,3 +1,4 @@
+import "dotenv/config";
 //The main entry point of our Express server
 // This file:
 //1. Create the express application
@@ -11,31 +12,34 @@ import cors from "cors";
 import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
 import adminRoutes from "./routes/adminRoutes";
-import dotenv from "dotenv";
 import productRoutes from "./routes/productRoutes";
 import orderRoutes from "./routes/orderRoutes";
+import cartRoutes from "./routes/cartRoutes";
 import { errorHandler } from "./middleware/errorMiddleware";
-import { timeStamp } from "node:console";
 
 // load enviroment variables from .env file
 //  Must be called BEFORE any code that uses process.env
 
-dotenv.config();
+if (!process.env.JWT_SECRET?.trim()) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
 
 const app = express();
-
-// Parse incoming JSON request bodies
-app.use(express.json());
 
 // --- MIDDLEWARE SETUP----
 // Middleware are functions that run on every request before your routes
 
 //CORS: Allow requests from any origin
 //origin :true reflects the request origin, which works  with credentials
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: true,
-    credentials: true, // Allows cookeies and authorization headers
+    origin: allowedOrigins,
+    credentials: true,
   }),
 );
 
@@ -64,6 +68,7 @@ app.use("/api/products", productRoutes);
 
 //Order routes : /api/orders
 app.use("/api/orders", orderRoutes);
+app.use("/api/cart", cartRoutes);
 
 // Admin routes: api/admin/users etc
 app.use("/api/admin", adminRoutes);
@@ -113,5 +118,7 @@ process.on("unhandledRejection", (reason: Error) => {
 });
 startSever();
 
-//https://final-audiofile-anko.vercel.app/
 export default app;
+
+//https://final-audio-file.onrender.com
+//https://final-audiofile-anko.vercel.app/

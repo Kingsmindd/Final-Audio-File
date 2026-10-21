@@ -4,6 +4,7 @@
 
 import { Request } from "express";
 import multer from "multer";
+import { AppError } from "./errorMiddleware";
 
 // memoryStorage keeps the file in RAM as a buffery (binary data)
 // This is better than saving to database/disk when we're uploading to cloudinary
@@ -22,7 +23,7 @@ const fileFilter = (
     cb(null, true); //null = no error, true = accept the file
   } else {
     // reject non-images files
-    cb(new Error("Only images files are allowed"));
+    cb(new AppError("Only image files are allowed", 400));
   }
 };
 

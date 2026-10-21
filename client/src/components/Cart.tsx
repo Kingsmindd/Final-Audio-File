@@ -1,7 +1,11 @@
-import React from "react";
-
-const Cart: React.FC = () => {
-  return <div></div>;
-};
-
-export default Cart;
+import { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { FiArrowRight, FiMinus, FiPlus, FiShoppingBag, FiX } from "react-icons/fi";
+import { useStore } from "../context/StoreContext";
+export default function Cart(){
+ const {cart,cartLoading,cartSaving,cartError,retryCart,updateQuantity,clearCart,isCartOpen,setIsCartOpen,calculateTotals}=useStore();
+ const panel=useRef<HTMLElement>(null); const closeButton=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{if(!isCartOpen)return;const previous=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;document.body.style.overflow="hidden";closeButton.current?.focus();const key=(e:KeyboardEvent)=>{if(e.key==="Escape")setIsCartOpen(false);if(e.key==="Tab"){const nodes=panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href]');if(!nodes?.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};document.addEventListener("keydown",key);return()=>{document.body.style.overflow=overflow;document.removeEventListener("keydown",key);previous?.focus();};},[isCartOpen,setIsCartOpen]);
+ if(!isCartOpen)return null; const count=cart.reduce((s,i)=>s+i.quantity,0);
+ return <div className="cart-backdrop" onClick={()=>setIsCartOpen(false)}><aside className="cart-panel" ref={panel} role="dialog" aria-modal="true" aria-labelledby="bag-title" onClick={e=>e.stopPropagation()}><div className="cart-heading"><div><span className="eyebrow copper-text">Good sound, incoming</span><h2 id="bag-title">Your bag <span>({count})</span></h2></div><button ref={closeButton} className="icon-button" aria-label="Close shopping bag" onClick={()=>setIsCartOpen(false)}><FiX/></button></div>{cartLoading&&<p className="bag-sync-status" role="status">Loading your saved bag…</p>}{cartSaving&&<p className="bag-sync-status" role="status">Saving your bag…</p>}{cartError&&<div className="bag-sync-error" role="alert"><p>{cartError}</p><button onClick={()=>void retryCart()}>Try again</button></div>}{!cartLoading&&cart.length?<><div className="cart-items">{cart.map(i=><div className="bag-item" key={i._id}><img src={i.image.trim()} alt={i.name}/><div><Link to={"/product/"+i._id} onClick={()=>setIsCartOpen(false)}>{i.name}</Link><p>₦ {i.price.toLocaleString()}</p><div className="quantity-control"><button disabled={cartSaving} aria-label={"Decrease "+i.name+" quantity"} onClick={()=>updateQuantity(i._id,i.quantity-1)}><FiMinus/></button><span>{i.quantity}</span><button disabled={cartSaving} aria-label={"Increase "+i.name+" quantity"} onClick={()=>updateQuantity(i._id,i.quantity+1)}><FiPlus/></button></div></div></div>)}</div><div className="cart-checkout"><button className="remove-all" disabled={cartSaving} onClick={()=>void clearCart()}>Remove all items</button><div className="subtotal-row"><span>Subtotal</span><strong>₦ {calculateTotals().subtotal.toLocaleString()}</strong></div><p>Shipping and VAT calculated at checkout.</p><Link to="/checkout" className="button button-copper" aria-disabled={cartSaving} onClick={e=>{if(cartSaving)e.preventDefault();else setIsCartOpen(false);}}>Continue to checkout <FiArrowRight/></Link></div></>:!cartLoading&&!cartError?<div className="empty-bag"><FiShoppingBag/><h3>Your next favourite is out there.</h3><p>Explore the collection and find your sound.</p><Link className="button button-dark" to="/headphones" onClick={()=>setIsCartOpen(false)}>Explore headphones <FiArrowRight/></Link></div>:null}</aside></div>;
+}

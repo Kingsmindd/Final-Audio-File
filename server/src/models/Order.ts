@@ -41,7 +41,6 @@ const orderSchema = new Schema<IOrder>(
       },
 
       eMoneyNumber: { type: String, default: "" },
-      eMoneyPIN: { type: String, default: "" },
     },
 
     //Snapshots of cart items at time of purchase
@@ -54,8 +53,16 @@ const orderSchema = new Schema<IOrder>(
           required: true,
         },
         name: { type: String, required: true },
-        price: { type: String, required: true },
-        quantity: { type: String, required: true },
+        price: { type: Number, required: true, min: 0 },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+          validate: {
+            validator: Number.isInteger,
+            message: "Quantity must be a whole number",
+          },
+        },
         image: { type: String, required: true },
       },
     ],
@@ -63,8 +70,8 @@ const orderSchema = new Schema<IOrder>(
     //Financial breakdown
 
     orderSummary: {
-      subtotal: { type: Number, require: true },
-      shipping: { type: Number, require: true },
+      subtotal: { type: Number, required: true },
+      shipping: { type: Number, required: true },
       vat: { type: Number, required: true },
       grandTotal: { type: Number, required: true },
     },
@@ -73,7 +80,7 @@ const orderSchema = new Schema<IOrder>(
     //admin can update
     status: {
       type: String,
-      enum: ["pending", "processing", "shipping", "delivered", "cancelled"],
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
       default: "pending", // all new order start as pending
     },
   },

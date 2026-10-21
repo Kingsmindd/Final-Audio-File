@@ -1,7 +1,1 @@
-import React from "react";
-
-const RollerLoader: React.FC = () => {
-  return <div></div>;
-};
-
-export default RollerLoader;
+export default function RollerLoader(){return <div className="loading-state" role="status"><span className="loading-ring"/><span>Finding your frequency…</span></div>;}
