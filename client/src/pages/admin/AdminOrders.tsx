@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from "react";
 import type { Order } from "../../types";
-import api from "../../Services/api";
+import api, { getApiErrorMessage } from "../../Services/api";
 import toast from "react-hot-toast";
 
 // All possible order statuses — in logical progression order
@@ -17,6 +17,14 @@ const ORDER_STATUSES = [
   "delivered",
   "cancelled",
 ] as const;
+
+const transitions: Record<Order["status"], readonly Order["status"][]> = {
+  pending: ["processing", "cancelled"],
+  processing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
 
 // Badge colors per status
 const statusColors: Record<string, string> = {
@@ -30,46 +38,52 @@ const statusColors: Record<string, string> = {
 const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
 
-  const fetchOrders = async (): Promise<void> => {
-    try {
-      // GET /api/admin/orders
-      const { data } = await api.get<Order[]>("/admin/orders");
-      setOrders(data);
-    } catch {
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const { data } = await api.get<Order[]>("/admin/orders", { signal: controller.signal });
+        if (!controller.signal.aborted) setOrders(data);
+      } catch {
+        if (!controller.signal.aborted) toast.error("Failed to load orders");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
-  };
+    void load();
+    return () => controller.abort();
+  }, []);
 
   // Update the status of an order
   const handleStatusUpdate = async (
     orderId: string,
     newStatus: string,
   ): Promise<void> => {
+    if (updating[orderId]) return;
+    setUpdating(current => ({ ...current, [orderId]: true }));
     try {
       // PUT /api/admin/orders/:id/status
-      await api.patch(`/admin/orders/${orderId}/status`, { status: newStatus });
+      const { data: updated } = await api.patch<Order>(`/admin/orders/${orderId}/status`, { status: newStatus });
 
       // Optimistically update the local state (faster UX than re-fetching)
       setOrders((prev) =>
         prev.map((o) =>
           o._id === orderId
-            ? { ...o, status: newStatus as Order["status"] }
+            ? updated
             : o,
         ),
       );
 
       toast.success(`Order status updated to ${newStatus}`);
-    } catch {
-      toast.error("Failed to update status");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Failed to update status"));
+    } finally {
+      setUpdating(current => ({ ...current, [orderId]: false }));
     }
   };
 
@@ -284,13 +298,14 @@ const AdminOrders: React.FC = () => {
                         Update Status
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {ORDER_STATUSES.map((status) => (
+                        {transitions[order.status].length === 0 && <p className="text-sm text-black/50">This order is {order.status}. No further changes are available.</p>}
+                        {transitions[order.status].map((status) => (
                           <button
                             key={status}
                             onClick={() =>
                               handleStatusUpdate(order._id, status)
                             }
-                            disabled={order.status === status}
+                            disabled={updating[order._id]}
                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                               order.status === status
                                 ? "bg-[#D87D4A] text-white"

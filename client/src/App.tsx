@@ -7,15 +7,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 // ----------- Route Wrappers --------------------
 // FIXED: removed static imports of RootLayout and AdminRoute since they are
 // already lazy-loaded below — having both caused "Identifier has already been declared" errors
-import { StoreProvider } from "./context/StoreContext";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { StoreProvider } from "./context/StoreProvider";
+import { AuthProvider } from "./context/AuthProvider";
+import { useAuth } from "./context/AuthContext";
 import RollerLoader from "./components/RollerLoader";
 import RootLayout from "./layout/RootLayout";
 import AdminRoute from "./components/AdminRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // ----------- Lazy Loading ------------------
-const HomePage = lazy(() => import("./pages/HomePage"));
+import HomePage from "./pages/HomePage";
 const HeadphonesPage = lazy(() => import("./pages/HeadphonesPage"));
 const SPeakersPage = lazy(() => import("./pages/SpeakerPage"));
 const EarphonesPage = lazy(() => import("./pages/EarphonesPage"));
@@ -43,7 +44,7 @@ const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 function ShoppingSession({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <RollerLoader />;
-  return <StoreProvider key={user?._id ? "user:" + user._id : "guest"}>{children}</StoreProvider>;
+  return <StoreProvider key={user?._id ? "user:" + user._id + ":" + user.token : "guest"}>{children}</StoreProvider>;
 }
 
 function App() {

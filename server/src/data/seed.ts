@@ -1,16 +1,14 @@
 // Seeds the database with initial product data.
-// Run with: npm run seed
+// Development only: npm run seed -- --confirm-product-reset
 
 // This script"
 // 1. connects to mongodb
 // 2. Deletes all existing products
 // 3. Inserts the sample products
-// 4. Creates an admin user (if one doesnt exist)
 
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Product from "../models/Product";
-import User from "../models/User";
 import dns from "dns";
 
 // Load environment variable from .env file
@@ -233,6 +231,12 @@ const products = [
 // ----- seed function -----
 const seedDatabase = async (): Promise<void> => {
   try {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Product seeding is disabled in production");
+    }
+    if (!process.argv.includes("--confirm-product-reset")) {
+      throw new Error("This replaces all products. Use a disposable development database and pass --confirm-product-reset explicitly");
+    }
     // connect to MongoDB
     await mongoose.connect(process.env.MONGO_URI as string);
     console.log("✅ connected to MongoDB fro seeding");
@@ -245,20 +249,6 @@ const seedDatabase = async (): Promise<void> => {
     await Product.insertMany(products);
     console.log(`⭐ Inserted ${products.length} products`);
 
-    // Create an admin user if one dosent exist
-    const adminExists = await User.findOne({ email: "admin@audiophile.com" });
-
-    if (!adminExists) {
-      await User.create({
-        name: "Admin",
-        email: "admin@audiophile.com",
-        password: "admin123",
-        isAdmin: true,
-      });
-      console.log("⛑️ Admin user created : admin@audiphile.com / admin123");
-    } else {
-      console.log("‼️ ⁉️ Amin user already exists");
-    }
     console.log("\n 🎉 Database seeded succesfully");
     process.exit(0);
   } catch (error) {

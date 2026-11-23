@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MdAdd, MdEdit, MdDelete, MdUpload } from "react-icons/md";
 import type { Product } from "../../types";
-import api from "../../Services/api";
+import api, { getApiErrorMessage } from "../../Services/api";
 import toast from "react-hot-toast";
 import { useStore } from "../../context/StoreContext";
 import { formatPriceInput, parsePriceInput } from "../../utils/priceInput";
@@ -74,20 +74,22 @@ const AdminProducts: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch all products
+  const [refreshVersion, setRefreshVersion] = useState(0);
   useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async (): Promise<void> => {
-    try {
-      const { data } = await api.get<Product[]>("/products");
-      setProducts(data);
-    } catch {
-      toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const { data } = await api.get<Product[]>("/products", { signal: controller.signal });
+        if (!controller.signal.aborted) setProducts(data);
+      } catch {
+        if (!controller.signal.aborted) toast.error("Failed to load products");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
-  };
+    void load();
+    return () => controller.abort();
+  }, [refreshVersion]);
 
   // Open modal for creating a new product
   const openCreateModal = (): void => {
@@ -198,9 +200,9 @@ const AdminProducts: React.FC = () => {
       }
 
       setShowModal(false);
-      fetchProducts(); // Refresh the list
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to save product");
+      setRefreshVersion(version => version + 1); // Refresh the list
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Failed to save product"));
     } finally {
       setIsSaving(false);
     }
@@ -213,7 +215,7 @@ const AdminProducts: React.FC = () => {
       removeProduct(id);
       toast.success("Product deleted");
       setDeleteConfirm(null);
-      fetchProducts();
+      setRefreshVersion(version => version + 1);
     } catch {
       toast.error("Failed to delete product");
     }

@@ -20,49 +20,34 @@ export const protect = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
-  let token: string | undefined;
-
-  // Check if the authorization header exists and starts with "Bearer"
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    try {
-      // extract the token : "Bearer TOKEN" -> "TOKEN"
-
-      token = req.headers.authorization.split(" ")[1];
-      // verify the token using our secret key
-      // jwt.verify throws an error if the token is expired or invalid
-      const decoded = Jwt.verify(
-        token,
-        process.env.JWT_SECRET as string,
-      ) as IJwtPayload;
-
-      // Find the user in the database using the ID stored in the token
-      const user = await User.findById(decoded.id).select("-password"); //".select(-password)" means... give me everything EXCEPT the password
-
-      if (!user) {
-        res.status(401).json({ message: "User not found" });
-        return;
-      }
-
-      // Attach the user to the request object
-      // Now anyroute using "protect" can access req.user
-      req.user = user;
-
-      next(); // Move to the next middleware or route handler
-    } catch (error) {
-      console.error("Token verification failed:", error);
-      res.status(401).json({ message: "Not authorized - invalid token" });
+  const match = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || "");
+  if (!match) {
+    res.status(401).json({ message: "Please sign in to continue" });
+    return;
+  }
+  let decoded: IJwtPayload;
+  try {
+    const payload = Jwt.verify(match[1], process.env.JWT_SECRET as string, { algorithms: ["HS256"] });
+    if (typeof payload === "string" || typeof payload.id !== "string" ||
+        !/^[a-f0-9]{24}$/i.test(payload.id) ||
+        (payload.sessionVersion !== undefined && !Number.isSafeInteger(payload.sessionVersion))) {
+      throw new Error("Invalid token payload");
+    }
+    decoded = payload as IJwtPayload;
+  } catch {
+    res.status(401).json({ message: "Your session has expired. Please sign in again" });
+    return;
+  }
+  try {
+    const user = await User.findById(decoded.id).select("-password +sessionVersion");
+    if (!user || (decoded.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) {
+      res.status(401).json({ message: "Your session has expired. Please sign in again" });
       return;
     }
-  }
-
-  // If no token found at all, reject the request
-  if (!token) {
-    res.status(401).json({ message: "Not authorized - no token provided" });
-    return;
+    req.user = user;
+    next();
+  } catch (error) {
+    next(error); // A database outage is not an invalid login.
   }
 };
 

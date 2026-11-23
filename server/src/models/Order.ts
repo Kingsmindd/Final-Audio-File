@@ -7,6 +7,10 @@ import { IOrder } from "../types/indexServer";
 
 const orderSchema = new Schema<IOrder>(
   {
+    idempotencyKey: { type: String, select: false },
+    requestFingerprint: { type: String, select: false },
+    deliveredAt: { type: Date },
+
     // Human-readable order ID (e.g, "ORD-1234-abc")
     // "default" function runs when a new order is created with no orderId provided
     orderId: {
@@ -88,6 +92,12 @@ const orderSchema = new Schema<IOrder>(
     timestamps: true, // adds createdAt and updateATO automatically
   },
 );
+
+// Existing orders without a key remain valid; MongoDB arbitrates concurrent retries.
+orderSchema.index({ idempotencyKey: 1 }, {
+  unique: true,
+  partialFilterExpression: { idempotencyKey: { $type: "string" } },
+});
 
 const Order = mongoose.model<IOrder>("Order", orderSchema);
 

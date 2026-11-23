@@ -10,7 +10,7 @@
 import React, { useState, useEffect } from "react";
 import { MdDelete, MdAdminPanelSettings, MdPerson } from "react-icons/md";
 import { useAuth } from "../../context/AuthContext";
-import api from "../../Services/api";
+import api, { getApiErrorMessage } from "../../Services/api";
 import toast from "react-hot-toast";
 
 // Type for a user returned from the admin API
@@ -30,21 +30,22 @@ const AdminUsers: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
-  const fetchUsers = async (): Promise<void> => {
-    try {
-      // GET /api/admin/users
-      const { data } = await api.get<AdminUser[]>("/admin/users");
-      setUsers(data);
-    } catch {
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const { data } = await api.get<AdminUser[]>("/admin/users", { signal: controller.signal });
+        if (!controller.signal.aborted) setUsers(data);
+      } catch {
+        if (!controller.signal.aborted) toast.error("Failed to load users");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
-  };
+    void load();
+    return () => controller.abort();
+  }, []);
 
   // Toggle admin status for a user
   const handleToggleAdmin = async (
@@ -88,8 +89,8 @@ const AdminUsers: React.FC = () => {
       setUsers((prev) => prev.filter((u) => u._id !== userId));
       setDeleteConfirm(null);
       toast.success("User deleted");
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete user");
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Failed to delete user"));
     }
   };
 

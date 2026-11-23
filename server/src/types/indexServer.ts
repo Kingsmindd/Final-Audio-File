@@ -8,6 +8,7 @@ export interface IUser extends Document {
   name: string; // User's display name
   email: string; // User's email (used for login)
   password: string; // Hashed password (never stored plain text)
+  sessionVersion: number;
   isAdmin: boolean; // True = admin user, false = regular user
   avatar?: string; // Optional profile picture URL (from cloudinary)
   avatarPublicId?: string; // Cloudinary public ID for detecting old avatars
@@ -92,6 +93,9 @@ export interface IOrderSummary {
 export interface IOrder extends Document {
   _id: Types.ObjectId;
   orderId: string;
+  idempotencyKey?: string;
+  requestFingerprint?: string;
+  deliveredAt?: Date;
   userId?: Types.ObjectId;
   customerInfo: ICustomerInfo;
   cartItems: IOrderItem[];
@@ -111,4 +115,5 @@ export interface AuthRequest extends Request {
 //  What we store inside the JWT token
 export interface IJwtPayload {
   id: string; // users mongodb _id
+  sessionVersion?: number;
 }

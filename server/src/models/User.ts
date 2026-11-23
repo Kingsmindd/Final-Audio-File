@@ -31,6 +31,8 @@ const userSchema = new Schema<IUser>(
       minlength: [8, "Password must be at least characters"],
     },
 
+    sessionVersion: { type: Number, default: 0, select: false },
+
     isAdmin: {
       type: Boolean,
       required: true,
@@ -75,13 +77,14 @@ const userSchema = new Schema<IUser>(
 
   {
     timestamps: true,
+    optimisticConcurrency: true,
   },
 );
 
 // ======= MIDDLEWARE(RUNS AUTOMATICALLY BEFORE SAVING) ======
 // Pre ("save") runs BEFORE a user document is saved to the database
 // we use this to hash passwords so plain text is NEVER STORED
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
   //This refers to the user being saved
   // only hash if the password was actually changed
   // this prevents re-hashing an already hashed password

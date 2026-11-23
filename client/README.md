@@ -1,73 +1,42 @@
-# React + TypeScript + Vite
+# Audiophile frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React, TypeScript and Vite frontend for the Audiophile storefront, customer accounts and admin dashboard.
 
-Currently, two official plugins are available:
+See the [main project README](../README.md) for features, full-stack setup, account and checkout rules, backend configuration and deployment notes.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Development
 
-## React Compiler
+From this folder:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm ci
+Copy-Item .env.example .env
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Set `VITE_API_URL` in `.env` to the API base URL including `/api`. The local default is `http://localhost:5000/api`. Start the backend separately as described in the main README.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Verification
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm run lint
+npm run build
+npm test
 ```
+
+Use Node.js 24 for the checkout tests. They live in `src/Services/checkout.test.ts` and exercise the checkout service with a substituted HTTP client, without sending real orders.
+
+## Organization
+
+- `components`: reusable UI, shopping bag and responsive navigation.
+- `context`: shared context definitions/hooks and separate provider components.
+- `layout`: storefront layout.
+- `pages`: storefront, customer and administrator screens.
+- `Services`: Axios client and checkout request handling.
+- `types` and `utils`: shared types, session handling and catalogue/bag logic.
+
+Signed-in customers and administrators use a desktop sidebar and mobile dropdown; guests keep the standard navigation. Registration redirects to sign-in. Notifications use React Hot Toast, and loading feedback uses static text.
+
+## Hosting
+
+Build with `npm run build` and publish `dist`. Set `VITE_API_URL` at build time and add a single-page application rewrite for direct route visits. Never put database, JWT or Cloudinary secrets in frontend environment variables.

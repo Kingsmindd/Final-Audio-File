@@ -105,6 +105,7 @@ export interface DashboardStats {
   totalOrders: number;
   totalUsers: number;
   totalRevenue: number;
+  outstandingOrderValue: number;
   pendingOrders: number;
   recentOrders: Order[];
   monthlyRevenue: {

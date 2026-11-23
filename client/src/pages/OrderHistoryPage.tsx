@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { Order } from "../types";
-import api from "../Services/api";
+import api, { getApiErrorMessage } from "../Services/api";
 import RollerLoader from "../components/RollerLoader";
 
 // Status badge color mapping
@@ -26,19 +26,21 @@ const OrderHistoryPage: React.FC = () => {
 
   // Fetch user's orders on mount
   useEffect(() => {
+    const controller = new AbortController();
     const fetchOrders = async (): Promise<void> => {
       try {
         // GET /api/orders/my-orders — requires JWT token (added by Axios interceptor)
-        const { data } = await api.get<Order[]>("/orders/my-orders");
-        setOrders(data);
-      } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to load orders");
+        const { data } = await api.get<Order[]>("/orders/my-orders", { signal: controller.signal });
+        if (!controller.signal.aborted) setOrders(data);
+      } catch (err: unknown) {
+        if (!controller.signal.aborted) setError(getApiErrorMessage(err, "Failed to load orders"));
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
-    fetchOrders();
+    void fetchOrders();
+    return () => controller.abort();
   }, []);
 
   if (loading) return <RollerLoader />;

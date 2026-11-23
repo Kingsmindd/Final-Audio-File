@@ -12,21 +12,23 @@ import {
 import { protect } from "../middleware/authMiddleware";
 import upload from "../middleware/uploadMiddleware";
 
+import { loginLimiter, registrationLimiter, passwordLimiter } from "../middleware/authRateLimit";
+
 const router = express.Router();
 // Public routes - anyone can access these
 
 // POST /api/auth/register creates new account
-router.post("/register", register);
+router.post("/register", registrationLimiter, register);
 
 // POST /api/auth/login sign in and recieve a token
 
-router.post("/login", login);
+router.post("/login", loginLimiter, login);
 // protected routes -- must send a valid JWT token in the authorization header
 //GET /api/auth/profile - view your own profile
 router.get("/profile", protect, getProfile);
 
 //PUT /api/auth/profile -- update name, phone address or password
-router.patch("/profile", protect, updateProfile);
+router.patch("/profile", protect, passwordLimiter, updateProfile);
 
 // POST api/auth/avatar -- upload a new profile picture
 router.post("/avatar", protect, upload.single("avatar"), updateAvatar); // "upload.single("avatar") means Multer will look for a field named "avatar"

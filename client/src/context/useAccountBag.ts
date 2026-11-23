@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import toast from "react-hot-toast";
 import api from "../Services/api";
 import { AccountBag, type RemoteBag } from "../utils/accountBag";
@@ -6,11 +6,10 @@ import { cartStorageKey, loadAccountCart, readSavedCart, saveCart } from "../uti
 import type { CartItem, Product, User } from "../types";
 
 export function useAccountBag(user: User | null) {
-  const instance = useRef<AccountBag | null>(null);
   const key = cartStorageKey(user?._id);
-  if (!instance.current) {
+  const [bag] = useState(() => {
     const headers = user ? { Authorization: "Bearer " + user.token } : undefined;
-    instance.current = new AccountBag(loadAccountCart(user?._id), items => saveCart(key, items), user ? {
+    return new AccountBag(loadAccountCart(user?._id), items => saveCart(key, items), user ? {
       get: async () => (await api.get<RemoteBag>("/cart", {headers})).data,
       prepareImport: async items => {
         const {data:products}=await api.get<Product[]>("/products");
@@ -21,8 +20,7 @@ export function useAccountBag(user: User | null) {
         revision, items: items.map(item => ({productId:item._id,quantity:item.quantity})),
       }, {headers})).data,
     } : undefined);
-  }
-  const bag = instance.current;
+  });
   const state = useSyncExternalStore(bag.subscribe, bag.getSnapshot);
   useEffect(() => { void bag.start().catch(() => {}); }, [bag]);
   useEffect(() => {
@@ -37,7 +35,7 @@ export function useAccountBag(user: User | null) {
     window.addEventListener("storage", sync);
     document.addEventListener("visibilitychange", refresh);
     return () => { window.removeEventListener("focus",refresh);window.removeEventListener("storage",sync);document.removeEventListener("visibilitychange",refresh); };
-  }, [bag,key,user?._id]);
+  }, [bag,key,user]);
   const change = async (update: (items: CartItem[]) => CartItem[]) => {
     const ok = await bag.change(update);
     if (!ok) toast.error(bag.getSnapshot().error || "Your bag wasn’t saved. Please try again.");

@@ -15,7 +15,7 @@ import {
   MdPending,
 } from "react-icons/md";
 import type { DashboardStats } from "../../types";
-import api from "../../Services/api";
+import api, { getApiErrorMessage } from "../../Services/api";
 import RollerLoader from "../../components/RollerLoader";
 
 // Month names for chart labels
@@ -54,8 +54,8 @@ const AdminDashboard: React.FC = () => {
         // GET /api/admin/stats — requires admin JWT
         const { data } = await api.get<DashboardStats>("/admin/stats");
         setStats(data);
-      } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to load dashboard");
+      } catch (err: unknown) {
+        setError(getApiErrorMessage(err, "Failed to load dashboard"));
       } finally {
         setLoading(false);
       }
@@ -87,13 +87,19 @@ const AdminDashboard: React.FC = () => {
   // Stat cards data
   const statCards = [
     {
+      label: "Outstanding order value",
+      value: `₦ ${stats.outstandingOrderValue.toLocaleString()}`,
+      icon: MdShoppingBag,
+      color: "bg-[#4C4C4C]",
+    },
+    {
       label: "Total Orders",
       value: stats.totalOrders.toLocaleString(),
       icon: MdShoppingBag,
       color: "bg-[#D87D4A]",
     },
     {
-      label: "Total order value",
+      label: "Completed sales",
       value: `₦ ${stats.totalRevenue.toLocaleString()}`,
       icon: MdAttachMoney,
       color: "bg-black",
@@ -119,7 +125,7 @@ const AdminDashboard: React.FC = () => {
       </h1>
 
       {/* ---- Stat Cards ---- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-10">
         {statCards.map(({ label, value, icon: Icon, color }) => (
           <div
             key={label}
@@ -143,11 +149,11 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---- Revenue Chart ---- */}
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 md:p-8 shadow-sm">
-          <h2 className="font-bold text-lg text-black mb-6">Monthly order value</h2>
+          <h2 className="font-bold text-lg text-black mb-6">Monthly completed sales</h2>
 
           {stats.monthlyRevenue.length === 0 ? (
             <p className="text-black/40 text-sm text-center py-12">
-              No order value data yet
+              No completed sales yet
             </p>
           ) : (
             <div className="flex items-end gap-2 md:gap-3 h-48">

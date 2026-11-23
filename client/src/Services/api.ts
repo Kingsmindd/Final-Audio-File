@@ -12,3 +12,11 @@ api.interceptors.response.use(response=>response,error=>{
  return Promise.reject(error);
 });
 export default api;
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ message?: unknown }>(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}

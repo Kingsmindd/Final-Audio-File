@@ -11,8 +11,53 @@ import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiCamera, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
-import api from "../Services/api";
+import api, { getApiErrorMessage } from "../Services/api";
 import toast from "react-hot-toast";
+
+  // Reusable field component
+  const Field = ({
+    label,
+    name,
+    type = "text",
+    placeholder,
+    error,
+    value,
+    onChange,
+  }: {
+    label: string;
+    name: string;
+    type?: string;
+    placeholder?: string;
+    error?: string;
+    value: string;
+    onChange: React.ChangeEventHandler<HTMLInputElement>;
+  }) => (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <label htmlFor={name}
+          className={`text-xs font-bold ${error ? "text-red-500" : "text-black"}`}
+        >
+          {label}
+        </label>
+        {error && <span className="text-xs text-red-500">{error}</span>}
+      </div>
+      <input
+        type={type}
+        autoComplete={type === "password" ? (name === "currentPassword" ? "current-password" : "new-password") : undefined}
+        id={name}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={`
+          w-full border rounded-lg px-6 py-4 text-sm font-bold text-black
+          placeholder:text-black/40 outline-none focus:border-[#D87D4A] transition-colors
+          ${error ? "border-red-500" : "border-[#CFCFCF]"}
+        `}
+      />
+    </div>
+  );
+
 
 const ProfilePage: React.FC = () => {
   const { user, updateUser, logout } = useAuth();
@@ -26,6 +71,7 @@ const ProfilePage: React.FC = () => {
     name: user?.name || "",
     phone: user?.phone || "",
     address: user?.address || "",
+    currentPassword: "",
     password: "",
     confirmPassword: "",
   });
@@ -50,6 +96,7 @@ const ProfilePage: React.FC = () => {
     if (!formData.name.trim()) newErrors.name = "Name is required";
 
     if (formData.password) {
+      if (!formData.currentPassword) newErrors.currentPassword = "Enter your current password";
       if (formData.password.length < 8) {
         newErrors.password = "Password must be at least 8 characters";
       }
@@ -79,6 +126,7 @@ const ProfilePage: React.FC = () => {
       // Only include password if user entered a new one
       if (formData.password) {
         updateData.password = formData.password;
+        updateData.currentPassword = formData.currentPassword;
       }
 
       // PUT /api/auth/profile
@@ -88,12 +136,12 @@ const ProfilePage: React.FC = () => {
       updateUser(data);
 
       // Clear password fields after save
-      setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+      setFormData((prev) => ({ ...prev, currentPassword: "", password: "", confirmPassword: "" }));
 
       toast.success("Profile updated successfully!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message =
-        error.response?.data?.message || "Failed to update profile";
+        getApiErrorMessage(error, "Failed to update profile");
       toast.error(message);
     } finally {
       setIsSaving(false);
@@ -139,7 +187,7 @@ const ProfilePage: React.FC = () => {
       const { data: profile } = await api.get("/auth/profile");
       updateUser({ avatar: profile.avatar });
       toast.success("Avatar updated!");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to upload avatar");
     } finally {
       setIsUploadingAvatar(false);
@@ -151,44 +199,6 @@ const ProfilePage: React.FC = () => {
     logout();
     navigate("/");
   };
-
-  // Reusable field component
-  const Field = ({
-    label,
-    name,
-    type = "text",
-    placeholder,
-    error,
-  }: {
-    label: string;
-    name: keyof typeof formData;
-    type?: string;
-    placeholder?: string;
-    error?: string;
-  }) => (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <label
-          className={`text-xs font-bold ${error ? "text-red-500" : "text-black"}`}
-        >
-          {label}
-        </label>
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </div>
-      <input
-        type={type}
-        name={name}
-        value={formData[name]}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={`
-          w-full border rounded-lg px-6 py-4 text-sm font-bold text-black
-          placeholder:text-black/40 outline-none focus:border-[#D87D4A] transition-colors
-          ${error ? "border-red-500" : "border-[#CFCFCF]"}
-        `}
-      />
-    </div>
-  );
 
   if (!user) return null;
 
@@ -223,10 +233,11 @@ const ProfilePage: React.FC = () => {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAvatar}
                 className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#D87D4A] flex items-center justify-center text-white shadow hover:bg-[#FBAF85] transition-colors disabled:opacity-60"
-                aria-label="Change avatar"
+                aria-label={isUploadingAvatar ? "Uploading profile picture" : "Change avatar"}
+                aria-busy={isUploadingAvatar}
               >
                 {isUploadingAvatar ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span aria-hidden="true">…</span>
                 ) : (
                   <FiCamera className="text-sm" />
                 )}
@@ -260,8 +271,8 @@ const ProfilePage: React.FC = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Field
-                label="Full Name"
-                name="name"
+                onChange={handleChange} label="Full Name"
+                name="name" value={formData.name}
                 placeholder="Your full name"
                 error={errors.name}
               />
@@ -275,14 +286,14 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
               <Field
-                label="Phone Number"
-                name="phone"
+                onChange={handleChange} label="Phone Number"
+                name="phone" value={formData.phone}
                 type="tel"
                 placeholder="+1 202-555-0136"
               />
               <Field
-                label="Default Address"
-                name="address"
+                onChange={handleChange} label="Default Address"
+                name="address" value={formData.address}
                 placeholder="1137 Williams Avenue"
               />
             </div>
@@ -298,15 +309,21 @@ const ProfilePage: React.FC = () => {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Field
-                label="New Password"
-                name="password"
+                onChange={handleChange} label="Current Password"
+                name="currentPassword" value={formData.currentPassword}
+                type="password" placeholder="Your current password"
+                error={errors.currentPassword}
+              />
+              <Field
+                onChange={handleChange} label="New Password"
+                name="password" value={formData.password}
                 type="password"
                 placeholder="Min 8 characters"
                 error={errors.password}
               />
               <Field
-                label="Confirm Password"
-                name="confirmPassword"
+                onChange={handleChange} label="Confirm Password"
+                name="confirmPassword" value={formData.confirmPassword}
                 type="password"
                 placeholder="Repeat new password"
                 error={errors.confirmPassword}

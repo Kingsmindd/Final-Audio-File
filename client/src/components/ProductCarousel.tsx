@@ -12,7 +12,11 @@ export default function ProductCarousel({initialCategory="all"}:{initialCategory
  const gesture=useRef({active:false,moved:false,x:0,scroll:0});
  const titleId=useId();const railId=useId();
  const visible=category==="all"?products:productsInCategory(products,category);
- useEffect(()=>setCategory(initialCategory),[initialCategory]);
+ const [previousCategory,setPreviousCategory]=useState(initialCategory);
+ if(previousCategory!==initialCategory){
+   setPreviousCategory(initialCategory);
+   setCategory(initialCategory);
+ }
  useEffect(()=>{
    const node=rail.current;if(!node)return;
    node.scrollLeft=0;

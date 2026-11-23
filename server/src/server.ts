@@ -15,6 +15,7 @@ import adminRoutes from "./routes/adminRoutes";
 import productRoutes from "./routes/productRoutes";
 import orderRoutes from "./routes/orderRoutes";
 import cartRoutes from "./routes/cartRoutes";
+import Order from "./models/Order";
 import { errorHandler } from "./middleware/errorMiddleware";
 
 // load enviroment variables from .env file
@@ -25,6 +26,10 @@ if (!process.env.JWT_SECRET?.trim()) {
 }
 
 const app = express();
+// Render has one trusted proxy in front of this API; never trust arbitrary forwarded IPs.
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS ?? (process.env.RENDER === "true" ? 1 : 0));
+if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 5) throw new Error("Invalid TRUST_PROXY_HOPS");
+app.set("trust proxy", proxyHops || false);
 
 // --- MIDDLEWARE SETUP----
 // Middleware are functions that run on every request before your routes
@@ -99,6 +104,8 @@ const PORT = Number(process.env.PORT) || 5000;
 const startSever = async () => {
   try {
     await connectDB();
+    // Do not accept checkouts until the unique retry-key index is available.
+    await Order.createIndexes();
     app.listen(PORT, () => {
       console.log(`🚀Server is running on port: ${PORT}`);
       console.log(`🌍 Enviroment: ${process.env.NODE_ENV || "development"}`);

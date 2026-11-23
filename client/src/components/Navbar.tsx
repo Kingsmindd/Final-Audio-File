@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import {
   FiArrowUpRight,
   FiMenu,
@@ -17,16 +17,17 @@ const links = [
 ];
 export default function Navbar() {
   const { cart, setIsCartOpen } = useStore();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [menu, setMenu] = useState(false);
   const [account, setAccount] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const navigate = useNavigate();
-  useEffect(() => {
+  const [menuPath, setMenuPath] = useState(location.pathname);
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
     setMenu(false);
     setAccount(false);
-  }, [location.pathname]);
+  }
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
@@ -40,12 +41,24 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", key);
-    return () => {
+      return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", key);
     };
   }, []);
   const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+  if (user) {
+    return (
+      <header className="member-header">
+        <nav aria-label="Shopping bag">
+          <button className="member-cart-button" aria-label={"Open shopping bag, " + count + " items"} onClick={() => setIsCartOpen(true)}>
+            <FiShoppingBag aria-hidden="true" /><span>Cart</span>{count > 0 && <span className="bag-count">{count}</span>}
+          </button>
+        </nav>
+      </header>
+    );
+  }
+
   return (
     <header className="site-header">
       <div className="announcement">
@@ -83,44 +96,13 @@ export default function Navbar() {
               aria-controls="account-menu"
               onClick={() => setAccount(!account)}
             >
-              {user ? (
-                <span className="avatar-initial">{user.name.charAt(0)}</span>
-              ) : (
-                <FiUser />
-              )}
+              <FiUser />
             </button>
             {account && (
               <div className="account-menu" id="account-menu">
-                {user ? (
-                  <>
-                    <strong>{user.name}</strong>
-                    <small>{user.email}</small>
-                    {user.isAdmin && (
-                      <Link to="/admin">
-                        Admin dashboard <FiArrowUpRight />
-                      </Link>
-                    )}
-                    <Link to="/profile">My profile</Link>
-                    <Link to="/orders">My orders</Link>
-                    <button
-                      onClick={() => {
-                        logout();
-                        setAccount(false);
-                        navigate("/");
-                      }}
-                    >
-                      Sign out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <strong>Your listening journey</strong>
-                    <Link to="/login">
-                      Sign in <FiArrowUpRight />
-                    </Link>
-                    <Link to="/register">Create an account</Link>
-                  </>
-                )}
+                <strong>Your listening journey</strong>
+                <Link to="/login">Sign in <FiArrowUpRight /></Link>
+                <Link to="/register">Create an account</Link>
               </div>
             )}
           </div>

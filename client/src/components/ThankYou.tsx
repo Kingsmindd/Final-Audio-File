@@ -1,4 +1,6 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
+import { finishCheckout } from "../Services/checkout";
 import { useStore } from "../context/StoreContext";
 import { useNavigate } from "react-router-dom";
 import type { OrderItem } from "../types";
@@ -10,6 +12,7 @@ const ThankYou: React.FC = () => {
     useStore();
 
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   if (!isThankYouOpen || !orderData) {
     return null;
@@ -23,6 +26,7 @@ const ThankYou: React.FC = () => {
 
   const handleClose = async (): Promise<void> => {
     if (cart.length && !await clearCart()) return;
+    finishCheckout(user?._id || "guest");
     setIsThankYouOpen(false);
     navigate("/");
   };

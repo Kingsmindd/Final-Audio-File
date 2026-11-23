@@ -17,11 +17,12 @@ import jwt from "jsonwebtoken";
 import { AuthRequest } from "../types/indexServer";
 import { deleteImage, uploadImage } from "../config/cloudinary";
 import mongoose from "mongoose";
+import { validEmail, validPassword, cleanEmail } from "../validation/auth";
 
 // Helper:generate a JWT token for a user
 // JWT = JSON web token - a signed string that proves who the user is
-const generateToken = (id: string): string => {
-  return jwt.sign({ id }, process.env.JWT_SECRET as string, {
+const generateToken = (id: string, sessionVersion = 0): string => {
+  return jwt.sign({ id, sessionVersion }, process.env.JWT_SECRET as string, {
     expiresIn: "3d",
   });
 };
@@ -43,23 +44,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!name.trim() || !email.trim() || password.length < 8) {
-      res.status(400).json({
-        message:
-          "Name and email are required, and password must be at least 8 characters",
-      });
-      return;
-    }
-    //Basic validation = check all required fields are present
-    if (!name || !email || !password) {
-      res
-        .status(400)
-        .json({ message: "Please provide name, email and password " });
+    if (!name.trim() || name.trim().length > 100 || !validEmail(email) || !validPassword(password)) {
+      res.status(400).json({ message: "Enter a name (1-100 characters), a valid email, and a password of at least 8 characters (maximum 72 UTF-8 bytes)" });
       return;
     }
     // Check if a user with this email already exists
 
-    const userExists = await User.findOne({ email: email.toLowerCase() });
+    const userExists = await User.findOne({ email: cleanEmail(email) });
 
     if (userExists) {
       res
@@ -69,9 +60,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     // create the user - the pre-save hook in User.ts will hash the password
-    const user = await User.create({ name, email, password });
+    const user = await User.create({ name: name.trim(), email: cleanEmail(email), password });
 
-    // Respond with user data and a token
+    // Registration does not start a session; the customer signs in next.
     res.status(201).json({
       _id: user._id.toString(),
       name: user.name,
@@ -80,9 +71,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       avatar: user.avatar,
       phone: user.phone,
       address: user.address,
-      token: generateToken(user._id.toString()),
     });
   } catch (error) {
+    if ((error as { code?: number })?.code === 11000) {
+      res.status(409).json({ message: "An account with this email already exists" });
+      return;
+    }
     console.error("Register error:", error);
     res.status(500).json({ message: "Server error during registration" });
   }
@@ -103,12 +97,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       });
       return;
     }
-    if (!email || !password) {
+    if (!validEmail(email) || !validPassword(password)) {
       res.status(400).json({ message: "Please provide email and password" });
       return;
     }
     // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: cleanEmail(email) }).select("+sessionVersion");
 
     // Check user exists AND password amtches
     // user.matchPassword is defined on the user model
@@ -121,7 +115,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         avatar: user.avatar,
         phone: user.phone,
         address: user.address,
-        token: generateToken(user._id.toString()),
+        token: generateToken(user._id.toString(), user.sessionVersion ?? 0),
       });
     } else {
       // use a vague error messgae for security
@@ -163,29 +157,44 @@ export const updateProfile = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const user = await User.findById(req.user!._id);
+    const user = await User.findById(req.user!._id).select("+sessionVersion");
 
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
 
-    // Only update fields that were actually sent in the request
-    // "?? user.name" means (if req.body.name is null/defined, keep old)
-
-    user.name = req.body.name ?? user.name;
-    user.phone = req.body.phone ?? user.phone;
-    user.address = req.body.address ?? user.address;
-
-    if (req.body.password) {
-      if (req.body.password.length < 8) {
-        res
-          .status(400)
-          .json({ message: "Password must be at least 8 character" });
+    if ((user.sessionVersion ?? 0) !== (req.user!.sessionVersion ?? 0)) {
+      res.status(401).json({ message: "Your session has expired. Please sign in again" });
+      return;
+    }
+    const body = req.body ?? {};
+    for (const [field, max] of [["name", 100], ["phone", 40], ["address", 300]] as const) {
+      if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].trim().length > max ||
+          (field === "name" && !body[field].trim()))) {
+        res.status(400).json({ message: "Enter a valid " + field + " (maximum " + max + " characters)" });
         return;
       }
-      user.password = req.body.password; // The pre-save hook will hash thsi new password automatically
     }
+    if (body.password !== undefined && body.password !== "") {
+      if (!validPassword(body.password) || !validPassword(body.currentPassword)) {
+        res.status(400).json({ message: "Enter your current password and a new password of at least 8 characters (maximum 72 UTF-8 bytes)" });
+        return;
+      }
+      if (!await user.matchPassword(body.currentPassword)) {
+        res.status(400).json({ message: "Current password is incorrect" });
+        return;
+      }
+      if (body.password === body.currentPassword) {
+        res.status(400).json({ message: "Choose a different new password" });
+        return;
+      }
+      user.password = body.password;
+      user.sessionVersion = (user.sessionVersion ?? 0) + 1;
+    }
+    if (body.name !== undefined) user.name = body.name.trim();
+    if (body.phone !== undefined) user.phone = body.phone.trim();
+    if (body.address !== undefined) user.address = body.address.trim();
 
     // save the updated user to the database
     const updatedUser = await user.save();
@@ -198,9 +207,13 @@ export const updateProfile = async (
       avatar: updatedUser.avatar,
       phone: updatedUser.phone,
       address: updatedUser.address,
-      token: generateToken(updatedUser._id.toString()),
+      token: generateToken(updatedUser._id.toString(), updatedUser.sessionVersion ?? 0),
     });
   } catch (error) {
+    if (error instanceof mongoose.Error.VersionError) {
+      res.status(409).json({ message: "Your profile changed elsewhere. Reload and try again" });
+      return;
+    }
     res.status(500).json({
       message: "Server error updating profile",
     });
