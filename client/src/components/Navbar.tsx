@@ -21,6 +21,7 @@ export default function Navbar() {
   const [menu, setMenu] = useState(false);
   const [account, setAccount] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const [menuPath, setMenuPath] = useState(location.pathname);
   if (menuPath !== location.pathname) {
@@ -30,8 +31,8 @@ export default function Navbar() {
   }
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setAccount(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setAccount(false);
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) setMenu(false);
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -60,7 +61,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="site-header">
+    <header ref={headerRef} className="site-header">
       <div className="announcement">
         A little closer to the music.{" "}
         <span>
@@ -73,7 +74,7 @@ export default function Navbar() {
           aria-label={menu ? "Close menu" : "Open menu"}
           aria-expanded={menu}
           aria-controls="mobile-navigation"
-          onClick={() => setMenu(!menu)}
+          onClick={() => { setMenu(!menu); setAccount(false); }}
         >
           {menu ? <FiX /> : <FiMenu />}
         </button>
@@ -82,7 +83,7 @@ export default function Navbar() {
         </Link>
         <div className="desktop-links">
           {links.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.to === "/"}>
+            <NavLink key={l.to} to={l.to} end={l.to === "/"} onClick={() => setMenu(false)}>
               {l.label}
             </NavLink>
           ))}
@@ -94,7 +95,7 @@ export default function Navbar() {
               aria-label="Account menu"
               aria-expanded={account}
               aria-controls="account-menu"
-              onClick={() => setAccount(!account)}
+              onClick={() => { setAccount(!account); setMenu(false); }}
             >
               <FiUser />
             </button>
@@ -121,15 +122,20 @@ export default function Navbar() {
         </div>
       </nav>
       {menu && (
-        <div id="mobile-navigation" className="mobile-links shell">
+        <div id="mobile-navigation" className="mobile-links" aria-label="Browse the store">
+          <div className="guest-mobile-scroll" tabIndex={0}>
           {links.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.to === "/"}>
+            <NavLink key={l.to} to={l.to} end={l.to === "/"} onClick={() => setMenu(false)}>
               {l.label}
               <FiArrowUpRight />
             </NavLink>
           ))}
+          </div>
         </div>
       )}
     </header>
   );
 }
+
+
+
